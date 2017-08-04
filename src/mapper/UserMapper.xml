@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace就是mapper接口的地址
+-->
+<mapper namespace="mapper.UserMapper">
+    <!-- 这个是最简单的没有用resultmap的 只用了resulttype -->
+    <select id="findUserById" parameterType="int" resultType="user">
+		SELECT * FROM USER WHERE id=#{id}
+	</select>
+    <!-- 这个value是固定写法的  然后百分号和美元符号别忘 返回值为user对象 会自动帮你封装成list的  自动帮你选择selectone还是selectlist -->
+    <select id="findUserByName" parameterType="java.lang.String" resultType="user">
+		SELECT * FROM USER WHERE username like '%${value}%'
+	</select>
+    <!-- 这两块用的resulttype 因为在config文件用了typeAliases定义别名 可以直接使用别名，也可以不用别名指定该类的全限定名 -->
+    <!-- resulttype 用的不多 主要是入门了解 resulttype功能要强大很多 -->
+
+
+    <!-- 基础 -->
+
+
+    <!-- 这部分是进行综合查询的，有几点要注意下
+            第一 要有一个userQueryvo 作为paramtype
+            第二  userQueryVo 里面可以直接包含user 也可以包含user的继承类usercustomer
+            第三  select下面usercustomer的名称要和userQuery里面usercustomer的实例名称一样
+            -->
+    <select id="findUserByNameAndSex" parameterType="po.UserQueryVo" resultType="user">
+		select * from user where user.sex=#{usercustomer.sex} and user.username like '%${usercustomer.username}%'
+	</select>
+
+
+    <!-- 高级 -->
+
+
+    <!-- resultmap的使用 -->
+    <!-- 第一种方式 对于select查询结果出现别名   type这里可以用mybatisconfig定义的的别名或者类的全限定名-->
+    <resultMap type="user" id="userresultmap">
+        <id column="id_" property="id"/>
+        <result column="username_" property="username"/>
+    </resultMap>
+    <select id="findUserByIdResultMap" parameterType="int" resultMap="userresultmap">
+		SELECT id id_,username username_ FROM USER WHERE id=#{id};
+	</select>
+
+
+    <!-- insert 用的是类的全限定名或者自定义别名 -->
+    <insert id="insertUser" parameterType="user">
+        <!-- selectKey将主键返回，需要再返回 主键返回就是在添加了一个元素后可以直接取出该元素的主键 -->
+        <selectKey keyProperty="id" order="AFTER" resultType="java.lang.Integer">
+            select LAST_INSERT_ID()
+        </selectKey>
+        insert into user(username,birthday,sex,address)
+        values(#{username},#{birthday},#{sex},#{address});
+    </insert>
+
+
+    <!--根据id删除用户 -->
+    <delete id="deleteUserById" parameterType="int">
+		delete from user where id=#{id}
+	</delete>
+    <!-- 进阶 -->
+
+
+    <!-- 订单信息resultmap  一对一查询 -->
+    <resultMap type="po.Orders" id="userordermap">
+        <!-- 这里的id，是mybatis在进行一对一查询时将user字段映射为user对象时要使用，必须写 -->
+        <!-- 这里的property属性是java类对象的   而column属性是数据库查询出来的直接属性 -->
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="number" column="number"/>
+        <!-- 这里的javaType可以用类全限定名 或者用别名 -->
+        <association property="user" javaType="user">
+            <!-- 这里的id为user的id，如果写上表示给user的id属性赋值 -->
+            <id property="id" column="user_id"/>
+            <result property="username" column="username"/>
+            <result property="address" column="address"/>
+        </association>
+    </resultMap>
+    <select id="findOrdersListResultMap" resultMap="userordermap">
+			SELECT
+			orders.*,
+			user.username,
+			user.address
+			FROM
+			orders,	user
+			WHERE orders.user_id = user.id 
+	</select>
+
+
+    <!-- 一对多查询    orders为一 ordersdetails为多 -->
+    <resultMap type="po.Orders" id="userorderdetailmap">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="number" column="number"/>
+        <association property="user" javaType="po.User">
+            <id property="id" column="user_id"/>
+            <result property="username" column="username"/>
+            <result property="address" column="address"/>
+        </association>
+        <!-- oftype表示类的全限定名或者自定义别名 -->
+        <collection property="orderdetails" ofType="po.Orderdetail">
+            <id property="id" column="orderdetail_id"/>
+            <result property="itemsId" column="items_id"/>
+            <result property="itemsNum" column="items_num"/>
+        </collection>
+    </resultMap>
+    <select id="findOrdersDetailList" resultMap="userorderdetailmap">
+		SELECT
+		orders.*,
+		user.username,
+		user.address,
+		orderdetail.id orderdetail_id,
+		orderdetail.items_id,
+		orderdetail.items_num
+		FROM orders,user,orderdetail
+		WHERE orders.user_id = user.id
+		AND orders.id = orderdetail.orders_id
+	</select>
+
+
+    <!-- 延迟加载的一对一关联查询 其实都差不多的  就是要先打开配置的延迟加载选项 然后使用select选择延迟加载使用的模块 -->
+    <!-- 订单信息resultmap -->
+    <resultMap type="po.Orders" id="userordermap2">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="number" column="number"/>
+        <association property="user" javaType="po.User" select="findUserById" column="user_id"/>
+    </resultMap>
+    <select id="findOrdersList2" resultMap="userordermap2">
+		SELECT
+		orders.*
+		FROM
+		orders
+	</select>
+
+
+    <!-- 最重 高难度的关联查询 -->
+
+</mapper>
+
+
